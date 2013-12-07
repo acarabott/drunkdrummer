@@ -11,15 +11,42 @@ var trackID = 'TRLBGPN142CE22AC29';
 var audioContext = new webkitAudioContext();
 var audioData = [];
 var request = new XMLHttpRequest();
+var processor = audioContext.createScriptProcessor(4096, 1, 1);
 var source;
 var origBuf;
 var trackBuf;
 var notes;
 var segments;
-var minDur = 30;
-
+var minDur = 5;
 var FADE_OUT_FRAMES = audioContext.sampleRate * 0.5;
 var FADE_IN_FRAMES = audioContext.sampleRate * 0.1;
+
+
+var canvas, canvasContext, waveform, waveformData;
+
+var doPrint = 0;
+var curEvent;
+
+var startTime;
+var canTrigger = true;
+
+processor.onaudioprocess = function (event) {
+	if (startTime !== undefined) {
+		if ((audioContext.currentTime - startTime) % trackBuf.duration < 1) {
+
+			if (canTrigger) {
+				console.log("ACTION!");
+				canTrigger = false;
+			}
+		} else {
+			if (!canTrigger) {
+				canTrigger = true;
+			}
+		}
+	}
+};
+processor.connect(audioContext.destination);
+
 
 request.open('GET', trackURL, true);
 request.responseType = 'arraybuffer';
@@ -128,7 +155,7 @@ function createSource(loop) {
 }
 
 function playSegment(segment) {
-	createSource(false);
+	createSource(true);
 	source.start(0, segment.start, segment.duration);
 	// source.start(0, segment.start, Math.min(segment.duration * tatedur, wait/1000));
 }
@@ -142,15 +169,17 @@ function playRandomSegment() {
 }
 
 function playBuffer() {
-	createSource(false);
-	source.start(0);
+	createSource(true);
+	source.start(startTime = audioContext.currentTime);
 }
+
+
 
 
 // TODO
 
-// Show Waveform
 // Test analysis
+// Show Waveform
 // Cut out sections, till down to segments, /segment etc
 // Wonky beats
 // Do Immigrant song
