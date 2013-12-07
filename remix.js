@@ -14,18 +14,18 @@ function createJRemixer(context, jquery, apiKey) {
             $.getJSON(url, {id:trackID, api_key:apiKey}, function(data) {
                 var analysisURL = data.response.track.audio_summary.analysis_url;
                 track = data.response.track;
-                
-                // This call is proxied through the yahoo query engine.  
+
+                // This call is proxied through the yahoo query engine.
                 // This is temporary, but works.
-                $.getJSON("http://query.yahooapis.com/v1/public/yql", 
-                    { q: "select * from json where url=\"" + analysisURL + "\"", format: "json"}, 
+                $.getJSON("http://query.yahooapis.com/v1/public/yql",
+                    { q: "select * from json where url=\"" + analysisURL + "\"", format: "json"},
                     function(data) {
                         if (data.query.results != null) {
                             track.analysis = data.query.results.json;
-                            remixer.remixTrack(track, trackURL, callback);   
+                            remixer.remixTrack(track, trackURL, callback);
                         }
                         else {
-                            callback(track, "Error:  no analysis data returned for that track - 0 ");  
+                            callback(track, "Error:  no analysis data returned for that track - 0 ");
                             console.log('error', 'No analysis data returned:  try again, or try another trackID');
                         }
                 });
@@ -34,7 +34,7 @@ function createJRemixer(context, jquery, apiKey) {
         },
 
         // If you have the analysis URL already, or if you've cached it in your app.
-        // Be *very* careful when searching for analysis URL by song:  it may not match the track being used.  
+        // Be *very* careful when searching for analysis URL by song:  it may not match the track being used.
         remixTrackByURL: function(analysisURL, trackURL, callback) {
             var track = new Object();
             $.getJSON(analysisURL, function(data) {
@@ -61,12 +61,12 @@ function createJRemixer(context, jquery, apiKey) {
                         track.buffer = context.createBuffer(request.response, false);
                         track.status = 'ok'
                     } else {
-                        context.decodeAudioData(request.response, 
+                        context.decodeAudioData(request.response,
                             function(buffer) {      // completed function
                                 track.buffer = buffer;
                                 track.status = 'ok';
-                                callback(track, 100);   
-                            }, 
+                                callback(track, 100);
+                            },
                             function(e) { // error function
                                 track.status = 'error: loading audio'
                                 console.log('audio error', e);
@@ -80,7 +80,7 @@ function createJRemixer(context, jquery, apiKey) {
                 }
                 request.onprogress = function(e) {
                     var percent = Math.round(e.position * 100  / e.totalSize);
-                    callback(track, percent);   
+                    callback(track, percent);
                 }
                 request.send();
             }
@@ -119,7 +119,7 @@ function createJRemixer(context, jquery, apiKey) {
                         } else {
                             q.prev = null
                         }
-                        
+
                         if (j < qlist.length - 1) {
                             q.next = qlist[j+1];
                         } else {
@@ -177,7 +177,7 @@ function createJRemixer(context, jquery, apiKey) {
 
                     for (var j = last; j < qchildren.length; j++) {
                         var qchild = qchildren[j];
-                        if (qchild.start >= qparent.start 
+                        if (qchild.start >= qparent.start
                                     && qchild.start < qparent.start + qparent.duration) {
                             qchild.parent = qparent;
                             qchild.indexInParent = qparent.children.length;
@@ -196,16 +196,18 @@ function createJRemixer(context, jquery, apiKey) {
                 var quanta = track.analysis[quanta_name];
                 var segs = track.analysis.segments;
 
-                for (var i = 0; i < quanta.length; i++) {
-                    var q = quanta[i]
+                if (quanta !== undefined) {
+                    for (var i = 0; i < quanta.length; i++) {
+                        var q = quanta[i]
 
-                    for (var j = last; j < segs.length; j++) {
-                        var qseg = segs[j];
-                        if (qseg.start >= q.start) {
-                            q.oseg = qseg;
-                            last = j;
-                            break
-                        } 
+                        for (var j = last; j < segs.length; j++) {
+                            var qseg = segs[j];
+                            if (qseg.start >= q.start) {
+                                q.oseg = qseg;
+                                last = j;
+                                break
+                            }
+                        }
                     }
                 }
             }
@@ -215,22 +217,24 @@ function createJRemixer(context, jquery, apiKey) {
                 var quanta = track.analysis[quanta_name];
                 var segs = track.analysis.segments;
 
-                for (var i = 0; i < quanta.length; i++) {
-                    var q = quanta[i]
-                    q.overlappingSegments = [];
+                if (quanta !== undefined) {
+                    for (var i = 0; i < quanta.length; i++) {
+                        var q = quanta[i]
+                        q.overlappingSegments = [];
 
-                    for (var j = last; j < segs.length; j++) {
-                        var qseg = segs[j];
-                        // seg starts before quantum so no
-                        if (parseFloat(qseg.start) + parseFloat(qseg.duration) < parseFloat(q.start)) {
-                            continue;
+                        for (var j = last; j < segs.length; j++) {
+                            var qseg = segs[j];
+                            // seg starts before quantum so no
+                            if (parseFloat(qseg.start) + parseFloat(qseg.duration) < parseFloat(q.start)) {
+                                continue;
+                            }
+                            // seg starts after quantum so no
+                            if (parseFloat(qseg.start) > parseFloat(q.start) + parseFloat(q.duration)) {
+                                break;
+                            }
+                            last = j;
+                            q.overlappingSegments.push(qseg);
                         }
-                        // seg starts after quantum so no
-                        if (parseFloat(qseg.start) > parseFloat(q.start) + parseFloat(q.duration)) {
-                            break;
-                        }
-                        last = j;
-                        q.overlappingSegments.push(qseg);
                     }
                 }
             }
@@ -315,7 +319,7 @@ function createJRemixer(context, jquery, apiKey) {
                         currentTriggers.push(setTimeout(afterPlayCallback, theTime));
                     }
                     return (when + parseFloat(q.duration));
-                } 
+                }
                 else if (isSilence(q)) {
                     return (when + parseFloat(q.duration));
                 }
@@ -337,7 +341,7 @@ function createJRemixer(context, jquery, apiKey) {
                 addOnPlayCallback: function(callback) {
                     onPlayCallback = callback;
                 },
-        
+
                 addAfterPlayCallback: function(callback) {
                     afterPlayCallback = callback;
                 },
@@ -414,7 +418,7 @@ function createJRemixer(context, jquery, apiKey) {
                 }, fileErrorHandler);
             }, fileErrorHandler);
         },
- 
+
     };
 
     function isQuantum(a) {
@@ -578,7 +582,7 @@ function fetchSignature() {
 
 function getProfile(trackID, callback) {
     var url = 'http://remix.echonest.com/Uploader/profile?callback=?';
-    return $.getJSON(url, {trid: trackID}, callback); 
+    return $.getJSON(url, {trid: trackID}, callback);
 }
 
 function urldecode(str) {
@@ -663,7 +667,7 @@ Wav.createWaveFileData = (function() {
 
             writeInt16(sampleL, a, offset);
             writeInt16(sampleR, a, offset + 2);
-            offset += 4; 
+            offset += 4;
         }
     }
   };
