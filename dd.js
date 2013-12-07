@@ -7,6 +7,7 @@ var apiKey = '';
 var trackURL = 'audio/riff.mp3';
 var trackID = 'TRLBGPN142CE22AC29';
 
+
 var audioContext = new webkitAudioContext();
 var audioData = [];
 var request = new XMLHttpRequest();
@@ -16,6 +17,9 @@ var trackBuf;
 var notes;
 var segments;
 var minDur = 30;
+
+var FADE_OUT_FRAMES = audioContext.sampleRate * 0.5;
+var FADE_IN_FRAMES = audioContext.sampleRate * 0.1;
 
 request.open('GET', trackURL, true);
 request.responseType = 'arraybuffer';
@@ -60,14 +64,42 @@ function extendBuffer(buffer, duration) {
 	return bigBuffer;
 }
 
+function getFadeMul(index, numFrames, fadeOut) {
+	var mul;
+
+	if (fadeOut) {
+		mul = (numFrames - index) / numFrames;
+	} else {
+		mul = index / numFrames;
+	}
+
+	// square twice to get a more natural quartic curve
+	// ref: Miller Puckette: The Theory and Technique of Electronic Music
+	// http://crca.ucsd.edu/~msp/techniques/latest/book-html/node70.html
+	mul = mul * mul;
+	mul = mul * mul;
+
+	return mul;
+}
+
 function muteSection(numFrames, offset) {
 	var c, i, channel;
 
-	// TODO fades
 	for (c = 0; c < trackBuf.numberOfChannels; c++) {
 		channel = trackBuf.getChannelData(c);
 		for (i = 0; i < numFrames; i++) {
-			channel[offset + i] = 0;
+
+			if (i < FADE_OUT_FRAMES) {
+				channel[offset + i] *= getFadeMul(i, FADE_OUT_FRAMES, true);
+			} else if (i > numFrames - FADE_IN_FRAMES) {
+				channel[offset + i] *= getFadeMul(
+					(i - (numFrames - FADE_IN_FRAMES)) - 1,
+					FADE_IN_FRAMES,
+					false
+				);
+			} else {
+				channel[offset + i] = 0;
+			}
 		}
 	}
 }
@@ -78,6 +110,7 @@ function muteRepeat(index) {
 
 var remixer = createJRemixer(audioContext, $, apiKey);
 var track;
+
 
 remixer.remixTrackById(trackID, trackURL, function (t, percent) {
 	track = t;
