@@ -34,6 +34,21 @@ var muteCount = 0;
 
 var doMuting = false;
 
+function start() {
+	playBuffer();
+	canTrigger = true;
+}
+
+function update_sections() {
+	var i;
+
+	$('.section').remove();
+
+	for (i = 0; i < loopCount - muteCount; i++) {
+		$('#container').append($('<div>').addClass('section'));
+	}
+
+}
 // Multiple of 4 loops...
 processor.onaudioprocess = function (event) {
 	if (startTime !== undefined) {
@@ -42,9 +57,9 @@ processor.onaudioprocess = function (event) {
 			if (canTrigger) {
 				console.log("ACTION!");
 				if (doMuting) {
-					console.log("muting:", loopCount - muteCount - 1);
 
-					if (muteCount > loopCount) {
+					if (muteCount < loopCount) {
+						console.log("muting:", loopCount - muteCount - 1);
 						muteRepeat(loopCount - muteCount - 1, true, muteCount === 0);
 
 						if (muteCount > 0) {
@@ -56,6 +71,7 @@ processor.onaudioprocess = function (event) {
 
 						muteCount++;
 					}
+					update_sections();
 				}
 				canTrigger = false;
 			}
@@ -83,6 +99,7 @@ request.onload = function () {
 
 		if (buffer.duration < minDur) {
 			trackBuf = extendBuffer(buffer, minDur);
+			update_sections();
 		} else {
 			trackBuf = buffer;
 		}
