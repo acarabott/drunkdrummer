@@ -58,7 +58,7 @@ processor.onaudioprocess = function (event) {
 				console.log("ACTION!");
 				if (doMuting) {
 
-					if (muteCount < loopCount) {
+					if (muteCount < loopCount - 1) {
 						console.log("muting:", loopCount - muteCount - 1);
 						muteRepeat(loopCount - muteCount - 1, true, muteCount === 0);
 
