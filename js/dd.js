@@ -17,7 +17,7 @@ var origBuf;
 var trackBuf;
 var notes;
 var segments;
-var minDur = 5;
+var minDur = 10;
 var FADE_OUT_FRAMES = audioContext.sampleRate * 0.5;
 var FADE_IN_FRAMES = audioContext.sampleRate * 0.1;
 
@@ -29,13 +29,34 @@ var curEvent;
 
 var startTime;
 var canTrigger = true;
+var loopCount = 1;
+var muteCount = 0;
 
+var doMuting = false;
+
+// Multiple of 4 loops...
 processor.onaudioprocess = function (event) {
 	if (startTime !== undefined) {
 		if ((audioContext.currentTime - startTime) % trackBuf.duration < 1) {
 
 			if (canTrigger) {
 				console.log("ACTION!");
+				if (doMuting) {
+					console.log("muting:", loopCount - muteCount - 1);
+
+					if (muteCount > loopCount) {
+						muteRepeat(loopCount - muteCount - 1, true, muteCount === 0);
+
+						if (muteCount > 0) {
+							muteSection(
+								FADE_OUT_FRAMES,
+								(loopCount - muteCount) * origBuf.length
+							);
+						}
+
+						muteCount++;
+					}
+				}
 				canTrigger = false;
 			}
 		} else {
@@ -70,23 +91,26 @@ request.onload = function () {
 request.send();
 
 function extendBuffer(buffer, duration) {
-	var count = Math.ceil(duration / buffer.duration),
-		// big = new Float32Array(buffer.length),
-		big = new Float32Array(new ArrayBuffer((buffer.length * 4) * count)),
-		bigBuffer = audioContext.createBuffer(
-			buffer.numberOfChannels,
-			big.length,
-			audioContext.sampleRate
-		),
-		c, i;
+	var big, bigBuffer, c, i;
+
+	loopCount = Math.ceil(duration / buffer.duration);
+	loopCount = loopCount + (loopCount % 2);
+
+	big = new Float32Array(new ArrayBuffer((buffer.length * 4) * loopCount));
+	bigBuffer = audioContext.createBuffer(
+		buffer.numberOfChannels,
+		big.length,
+		audioContext.sampleRate
+	);
 
 	for (c = 0; c < buffer.numberOfChannels; c++) {
-		for (i = 0; i < count; i++) {
+		for (i = 0; i < loopCount; i++) {
 			big.set(buffer.getChannelData(c), i * buffer.length);
 		}
 
 		bigBuffer.getChannelData(c).set(big);
 	}
+	console.log("loopcount:", loopCount);
 
 	return bigBuffer;
 }
@@ -109,16 +133,16 @@ function getFadeMul(index, numFrames, fadeOut) {
 	return mul;
 }
 
-function muteSection(numFrames, offset) {
+function muteSection(numFrames, offset, doFadeOut, doFadeIn) {
 	var c, i, channel;
 
 	for (c = 0; c < trackBuf.numberOfChannels; c++) {
 		channel = trackBuf.getChannelData(c);
 		for (i = 0; i < numFrames; i++) {
 
-			if (i < FADE_OUT_FRAMES) {
+			if (i < FADE_OUT_FRAMES && doFadeOut) {
 				channel[offset + i] *= getFadeMul(i, FADE_OUT_FRAMES, true);
-			} else if (i > numFrames - FADE_IN_FRAMES) {
+			} else if (i > numFrames - FADE_IN_FRAMES && doFadeIn) {
 				channel[offset + i] *= getFadeMul(
 					(i - (numFrames - FADE_IN_FRAMES)) - 1,
 					FADE_IN_FRAMES,
@@ -131,8 +155,13 @@ function muteSection(numFrames, offset) {
 	}
 }
 
-function muteRepeat(index) {
-	muteSection(origBuf.length, origBuf.length * index);
+function muteRepeat(index, doFadeOut, doFadeIn) {
+	muteSection(
+		origBuf.length,
+		origBuf.length * index,
+		doFadeOut,
+		doFadeIn
+	);
 }
 
 var remixer = createJRemixer(audioContext, $, apiKey);
@@ -178,8 +207,8 @@ function playBuffer() {
 
 // TODO
 
+// Cut out segments etc
 // Test analysis
 // Show Waveform
-// Cut out sections, till down to segments, /segment etc
 // Wonky beats
 // Do Immigrant song
