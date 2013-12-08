@@ -4,8 +4,8 @@
 
 var apiKey = 'YLTCU72SODVIC00NB';
 
-var trackURL = 'audio/riff.mp3';
-var trackID = 'TRLBGPN142CE22AC29';
+var trackURL = 'audio/riff.wav';
+var trackID = 'TRJEEOV142D1702A6F';
 
 
 var audioContext = new webkitAudioContext();
