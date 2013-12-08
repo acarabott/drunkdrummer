@@ -30,7 +30,7 @@ var curEvent;
 var startTime;
 var canTrigger = true;
 var origCanTrigger = true;
-var loopCount = 1;
+var loopCount = 2;
 var muteCount = 0;
 
 var doMuting = false;
@@ -297,6 +297,17 @@ function muteLastSegmentOfSection(sectionIndex) {
 	}
 
 	segmentMuteCounts[sectionIndex]++;
+
+	if (segmentMuteCounts[sectionIndex] === segments.length) {
+		muteCount++;
+	}
+}
+
+function muteLastSegmentofLastSection() {
+	var sectionIndex = (loopCount - muteCount) - 1;
+	console.log("muting last segment of", sectionIndex);
+
+	muteLastSegmentOfSection(sectionIndex);
 }
 
 var remixer = createJRemixer(audioContext, $, apiKey);
@@ -329,7 +340,7 @@ function playSegmentAt(index) {
 }
 
 function playRandomSegment() {
-	playTatuMAt(Math.floor(Math.random() * track.analysis.segments.length));
+	playSegmentAt(Math.floor(Math.random() * track.analysis.segments.length));
 }
 
 function stop() {
