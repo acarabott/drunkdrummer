@@ -382,3 +382,6 @@ function playBuffer() {
 // TODO
 // group segments if short
 // Wonky beats
+// buttons
+// images
+// fuck you = ready
