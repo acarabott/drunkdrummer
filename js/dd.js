@@ -11,7 +11,7 @@ var trackID = 'TRJEEOV142D1702A6F';
 var audioContext = new webkitAudioContext();
 var audioData = [];
 var request = new XMLHttpRequest();
-var processor = audioContext.createScriptProcessor(4096, 1, 1);
+var processor = audioContext.createScriptProcessor(256, 1, 1);
 var source;
 var origBuf;
 var trackBuf;
