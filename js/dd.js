@@ -17,7 +17,7 @@ var origBuf;
 var trackBuf;
 var notes;
 var segments;
-var minDur = 10;
+var minDur = 20;
 var FADE_OUT_FRAMES = audioContext.sampleRate * 0.5;
 var FADE_IN_FRAMES = audioContext.sampleRate * 0.1;
 
@@ -29,55 +29,90 @@ var curEvent;
 
 var startTime;
 var canTrigger = true;
-var loopCount = 1;
+var origCanTrigger = true;
+var loopCount = 6;
 var muteCount = 0;
 
 var doMuting = false;
+var canStartDrinking = false;
+
+function startDrinking() {
+	doMuting = true;
+	canStartDrinking = false;
+	start();
+}
 
 function start() {
 	playBuffer();
-	canTrigger = true;
 }
 
-function update_sections() {
+function createDrinks() {
+	var i;
+	for (i = 0; i < loopCount; i++) {
+		$('#drinks').append(
+			$('<div>')
+				.addClass('drink full')
+				.css('width', (100 / loopCount) + "%")
+
+		);
+	}
+}
+function updateDrinks() {
 	var i;
 
-	$('.section').remove();
-
-	for (i = 0; i < loopCount - muteCount; i++) {
-		$('#container').append($('<div>').addClass('section'));
-	}
-
+	$('.drink').each(function(index, el) {
+		if ( index >= loopCount - muteCount) {
+			$(el).removeClass('full');
+			$(el).addClass('empty');
+		}
+	});
 }
-// Multiple of 4 loops...
+
+function tryMuting() {
+	if (doMuting) {
+		if (muteCount < loopCount - 1) {
+			console.log("muting:", loopCount - muteCount - 1);
+			muteRepeat(loopCount - muteCount - 1, true, muteCount === 0);
+
+			if (muteCount > 0) {
+				muteSection(
+					FADE_OUT_FRAMES,
+					(loopCount - muteCount) * origBuf.length
+				);
+			}
+
+			muteCount++;
+		}
+		updateDrinks();
+	}
+}
+
 processor.onaudioprocess = function (event) {
 	if (startTime !== undefined) {
-		if ((audioContext.currentTime - startTime) % trackBuf.duration < 1) {
-
+		// beginning of big loop
+		if (((audioContext.currentTime - startTime) % trackBuf.duration) < 1) {
 			if (canTrigger) {
-				console.log("ACTION!");
-				if (doMuting) {
+				tryMuting();
 
-					if (muteCount < loopCount - 1) {
-						console.log("muting:", loopCount - muteCount - 1);
-						muteRepeat(loopCount - muteCount - 1, true, muteCount === 0);
-
-						if (muteCount > 0) {
-							muteSection(
-								FADE_OUT_FRAMES,
-								(loopCount - muteCount) * origBuf.length
-							);
-						}
-
-						muteCount++;
-					}
-					update_sections();
-				}
 				canTrigger = false;
 			}
 		} else {
 			if (!canTrigger) {
 				canTrigger = true;
+			}
+		}
+
+		// each loop trigger
+		if (((audioContext.currentTime - startTime) % origBuf.duration) < 1) {
+			if (origCanTrigger) {
+				if (canStartDrinking) {
+					startDrinking();
+				}
+				origCanTrigger = false;
+			}
+		} else {
+			if (!origCanTrigger) {
+				origCanTrigger = true;
 			}
 		}
 	}
@@ -97,23 +132,25 @@ request.onload = function () {
 
 		origBuf = buffer;
 
-		if (buffer.duration < minDur) {
-			trackBuf = extendBuffer(buffer, minDur);
-			update_sections();
-		} else {
-			trackBuf = buffer;
-		}
+		// if (buffer.duration < minDur) {
+			trackBuf = extendBuffer(buffer, loopCount);
+			createDrinks();
+			updateDrinks();
+		// } else {
+			// trackBuf = buffer;
+		// }
 	});
 };
 request.send();
 
-function extendBuffer(buffer, duration) {
+function extendBuffer(buffer, count) {
 	var big, bigBuffer, c, i;
 
-	loopCount = Math.ceil(duration / buffer.duration);
-	loopCount = loopCount + (loopCount % 2);
+	// loopCount = count;
+	// loopCount = Math.ceil(duration / buffer.duration);
+	// loopCount = loopCount + (loopCount % 2);
 
-	big = new Float32Array(new ArrayBuffer((buffer.length * 4) * loopCount));
+	big = new Float32Array(new ArrayBuffer((buffer.length * 4) * count));
 	bigBuffer = audioContext.createBuffer(
 		buffer.numberOfChannels,
 		big.length,
@@ -121,13 +158,13 @@ function extendBuffer(buffer, duration) {
 	);
 
 	for (c = 0; c < buffer.numberOfChannels; c++) {
-		for (i = 0; i < loopCount; i++) {
+		for (i = 0; i < count; i++) {
 			big.set(buffer.getChannelData(c), i * buffer.length);
 		}
 
 		bigBuffer.getChannelData(c).set(big);
 	}
-	console.log("loopcount:", loopCount);
+	console.log("loopcount:", count);
 
 	return bigBuffer;
 }
@@ -214,7 +251,15 @@ function playRandomSegment() {
 	playTatuMAt(Math.floor(Math.random() * track.analysis.segments.length));
 }
 
+function stop() {
+	if (source !== undefined) {
+		if (source.playbackState !== 0) {
+			source.stop(0);
+		}
+	}
+}
 function playBuffer() {
+	stop();
 	createSource(true);
 	source.start(startTime = audioContext.currentTime);
 }
@@ -224,8 +269,6 @@ function playBuffer() {
 
 // TODO
 
-// Cut out segments etc
-// Test analysis
-// Show Waveform
-// Wonky beats
 // Do Immigrant song
+// Cut out segments etc
+// Wonky beats
