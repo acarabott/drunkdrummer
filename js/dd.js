@@ -36,6 +36,7 @@ var muteCount = 0;
 var doMuting = false;
 var canStartDrinking = false;
 var segmentMuteCounts = [];
+var canMuteSegments = false;
 
 function startDrinking() {
 	canStartDrinking = true;
@@ -80,20 +81,27 @@ function tryMuting() {
 			console.log("muting:", loopCount - muteCount - 1);
 			muteRepeat(loopCount - muteCount - 1, true, muteCount === 0);
 
-			if (muteCount > 0) {
-				muteSection(
-					FADE_OUT_FRAMES,
-					(loopCount - muteCount) * origBuf.length
-				);
-			}
+
 
 			muteCount++;
+		} else {
+			canMuteSegments = true;
+		}
+		if (muteCount > 0) {
+			muteSection(
+				FADE_OUT_FRAMES,
+				(loopCount - muteCount) * origBuf.length
+			);
 		}
 		updateDrinks();
 	}
 }
 
-
+function tryMuteSegments() {
+	if (canMuteSegments) {
+		muteLastSegmentofLastSection();
+	}
+}
 
 processor.onaudioprocess = function (event) {
 	if (startTime !== undefined) {
@@ -101,6 +109,7 @@ processor.onaudioprocess = function (event) {
 		if (((audioContext.currentTime - startTime) % trackBuf.duration) < 1) {
 			if (canTrigger) {
 				tryMuting();
+				tryMuteSegments();
 
 				canTrigger = false;
 			}
@@ -116,6 +125,7 @@ processor.onaudioprocess = function (event) {
 				if (canStartDrinking) {
 					prStartDrinking();
 				}
+
 				origCanTrigger = false;
 			}
 		} else {
