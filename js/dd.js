@@ -30,12 +30,12 @@ var curEvent;
 var startTime;
 var canTrigger = true;
 var origCanTrigger = true;
-var loopCount = 6;
+var loopCount = 1;
 var muteCount = 0;
 
 var doMuting = false;
 var canStartDrinking = false;
-
+var segmentMuteCounts = [];
 
 function startDrinking() {
 	canStartDrinking = true;
@@ -57,11 +57,12 @@ function createDrinks() {
 		$('#drinks').append(
 			$('<div>')
 				.addClass('drink full')
-				.css('width', (100 / loopCount) + "%")
+				.css('width', (90 / loopCount) + "%")
 
 		);
 	}
 }
+
 function updateDrinks() {
 	var i;
 
@@ -91,6 +92,8 @@ function tryMuting() {
 		updateDrinks();
 	}
 }
+
+
 
 processor.onaudioprocess = function (event) {
 	if (startTime !== undefined) {
@@ -138,9 +141,9 @@ request.onload = function () {
 		origBuf = buffer;
 
 		// if (buffer.duration < minDur) {
-			trackBuf = extendBuffer(buffer, loopCount);
-			createDrinks();
-			updateDrinks();
+		trackBuf = extendBuffer(buffer, loopCount);
+		createDrinks();
+		updateDrinks();
 		// } else {
 			// trackBuf = buffer;
 		// }
@@ -148,12 +151,26 @@ request.onload = function () {
 };
 request.send();
 
+function setLoopCount(count) {
+	var i;
+
+	loopCount = count;
+
+	segmentMuteCounts = [];
+
+	for (i = 0; i < loopCount; i++) {
+		segmentMuteCounts[i] = 0;
+	}
+
+}
+
 function extendBuffer(buffer, count) {
 	var big, bigBuffer, c, i;
 
 	// loopCount = count;
 	// loopCount = Math.ceil(duration / buffer.duration);
 	// loopCount = loopCount + (loopCount % 2);
+	setLoopCount(loopCount);
 
 	big = new Float32Array(new ArrayBuffer((buffer.length * 4) * count));
 	bigBuffer = audioContext.createBuffer(
@@ -193,24 +210,45 @@ function getFadeMul(index, numFrames, fadeOut) {
 }
 
 function muteSection(numFrames, offset, doFadeOut, doFadeIn) {
-	var c, i, channel;
+	var c, i, channel, inFrames, outFrames;
+
+	numFrames = Math.ceil(numFrames);
+	offset = Math.ceil(offset);
+
+	outFrames = Math.ceil(Math.min(numFrames * 0.1, FADE_OUT_FRAMES));
+	inFrames = Math.ceil(Math.min(numFrames * 0.05, FADE_IN_FRAMES));
 
 	for (c = 0; c < trackBuf.numberOfChannels; c++) {
 		channel = trackBuf.getChannelData(c);
-		for (i = 0; i < numFrames; i++) {
 
-			if (i < FADE_OUT_FRAMES && doFadeOut) {
-				channel[offset + i] *= getFadeMul(i, FADE_OUT_FRAMES, true);
-			} else if (i > numFrames - FADE_IN_FRAMES && doFadeIn) {
-				channel[offset + i] *= getFadeMul(
-					(i - (numFrames - FADE_IN_FRAMES)) - 1,
-					FADE_IN_FRAMES,
-					false
-				);
+		for (i = 0; i < numFrames; i++) {
+			if (i < inFrames) {
+				if (doFadeOut) {
+					// console.log('fading out', i);
+					channel[offset + i] *= getFadeMul(i, outFrames, true);
+				} else {
+					// console.log('fading out mute', i);
+					channel[offset + i] = 0;
+				}
+			} else if (i > numFrames - inFrames) {
+				if (doFadeIn) {
+					// console.log('fading in', i);
+					channel[offset + i] *= getFadeMul(
+						(i - (numFrames - inFrames)) - 1,
+						inFrames,
+						false
+					);
+				} else {
+					// console.log('fading in mute', i);
+					channel[offset + i] = 0;
+				}
 			} else {
+				// console.log("straight mute", i);
 				channel[offset + i] = 0;
 			}
 		}
+		// trackBuf.getChannelData(c).set(channel);
+
 	}
 }
 
@@ -221,6 +259,44 @@ function muteRepeat(index, doFadeOut, doFadeIn) {
 		doFadeOut,
 		doFadeIn
 	);
+}
+
+function muteSegment(loopIndex, segmentIndex, doFadeOut, doFadeIn) {
+	var segment = track.analysis.segments[segmentIndex],
+		numFrames = Math.ceil(segment.duration * audioContext.sampleRate),
+		offset = (loopIndex * origBuf.duration) + segment.start;
+
+	offset = Math.ceil(offset * audioContext.sampleRate);
+
+	console.log('muting segment', segmentIndex);
+
+	muteSection(
+		numFrames,
+		offset,
+		doFadeOut,
+		doFadeIn
+	);
+}
+
+function muteLastSegmentOfSection(sectionIndex) {
+	var segmentIndex = (segments.length - 1) - segmentMuteCounts[sectionIndex];
+
+	muteSegment(
+		sectionIndex,
+		segmentIndex,
+		true,
+		false
+	);
+
+	if (segmentMuteCounts[sectionIndex] > 0) {
+		muteSection(
+			FADE_OUT_FRAMES,
+			Math.ceil((sectionIndex * origBuf.length) +
+				segments[segmentIndex].start * audioContext.sampleRate)
+		);
+	}
+
+	segmentMuteCounts[sectionIndex]++;
 }
 
 var remixer = createJRemixer(audioContext, $, apiKey);
