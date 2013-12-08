@@ -122,6 +122,7 @@ processor.onaudioprocess = function (event) {
 		// each loop trigger
 		if (((audioContext.currentTime - startTime) % origBuf.duration) < 1) {
 			if (origCanTrigger) {
+				// console.log('loop loop');
 				if (canStartDrinking) {
 					prStartDrinking();
 				}
@@ -291,33 +292,41 @@ function muteSegment(loopIndex, segmentIndex, doFadeOut, doFadeIn) {
 function muteLastSegmentOfSection(sectionIndex) {
 	var segmentIndex = (segments.length - 1) - segmentMuteCounts[sectionIndex];
 
-	muteSegment(
-		sectionIndex,
-		segmentIndex,
-		true,
-		false
-	);
-
-	if (segmentMuteCounts[sectionIndex] > 0) {
-		muteSection(
-			FADE_OUT_FRAMES,
-			Math.ceil((sectionIndex * origBuf.length) +
-				segments[segmentIndex].start * audioContext.sampleRate)
+	if (!(sectionIndex === 0 && segmentIndex === 0)) {
+		muteSegment(
+			sectionIndex,
+			segmentIndex,
+			true,
+			false
 		);
-	}
 
-	segmentMuteCounts[sectionIndex]++;
+		if (segmentMuteCounts[sectionIndex] > 0) {
+			muteSection(
+				FADE_OUT_FRAMES,
+				Math.ceil((sectionIndex * origBuf.length) +
+					segments[segmentIndex].start * audioContext.sampleRate)
+			);
+		}
 
-	if (segmentMuteCounts[sectionIndex] === segments.length) {
-		muteCount++;
+		segmentMuteCounts[sectionIndex]++;
+
+		if (segmentMuteCounts[sectionIndex] === segments.length) {
+			muteCount++;
+		}
+	} {
+		canMuteSegments = false;
 	}
 }
 
 function muteLastSegmentofLastSection() {
 	var sectionIndex = (loopCount - muteCount) - 1;
-	console.log("muting last segment of", sectionIndex);
 
-	muteLastSegmentOfSection(sectionIndex);
+	if (sectionIndex > -1) {
+		console.log("muting last segment of", sectionIndex);
+		muteLastSegmentOfSection(sectionIndex);
+	} else {
+		console.log("no more segments to mute");
+	}
 }
 
 var remixer = createJRemixer(audioContext, $, apiKey);
@@ -371,7 +380,5 @@ function playBuffer() {
 
 
 // TODO
-
-// Do Immigrant song
-// Cut out segments etc
+// group segments if short
 // Wonky beats
