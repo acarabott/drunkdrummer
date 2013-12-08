@@ -36,7 +36,12 @@ var muteCount = 0;
 var doMuting = false;
 var canStartDrinking = false;
 
+
 function startDrinking() {
+	canStartDrinking = true;
+}
+
+function prStartDrinking() {
 	doMuting = true;
 	canStartDrinking = false;
 	start();
@@ -106,7 +111,7 @@ processor.onaudioprocess = function (event) {
 		if (((audioContext.currentTime - startTime) % origBuf.duration) < 1) {
 			if (origCanTrigger) {
 				if (canStartDrinking) {
-					startDrinking();
+					prStartDrinking();
 				}
 				origCanTrigger = false;
 			}
@@ -258,6 +263,7 @@ function stop() {
 		}
 	}
 }
+
 function playBuffer() {
 	stop();
 	createSource(true);
