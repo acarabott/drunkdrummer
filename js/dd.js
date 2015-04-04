@@ -2,7 +2,7 @@
 /*global webkitAudioContext: false, createJRemixer: false, jQuery: false, $: false,
 		Waveform: false, Float32Array: false*/
 
-var apiKey = '';
+var apiKey = 'YLTCU72SODVIC00NB';
 
 var trackURL = 'audio/riff.wav';
 var trackID = 'TRJEEOV142D1702A6F';
